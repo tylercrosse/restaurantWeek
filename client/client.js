@@ -7,31 +7,66 @@ function initMap() {
   const infowindow = new google.maps.InfoWindow();
   const service = new google.maps.places.PlacesService(map);
 
-  loadJSON('../server/data/flatData.json')
+  loadJSON('../server/data/restaurant_geo.json')
     .then((json) => {
       return JSON.parse(json)
     })
     .then((restaurants) => {
-      restaurants.forEach((restaurant) => {
-        const marker = new google.maps.Marker({
-          map: map,
-          position: restaurant.geometry.location
-        });
-        google.maps.event.addListener(marker, 'click', function() {
-          infowindow.setContent(
-`<div>
-  <strong>${restaurant.name}</strong>
-  <br>
-  Rating: ${restaurant.rating}
-  <br>
-  ${restaurant.formatted_address}
-</div>`
-          );
-          infowindow.open(map, this);
-        });
+      const hoverInfoWindow = new google.maps.InfoWindow();
+      const clickInfoWindow = new google.maps.InfoWindow();
+      map.data.addGeoJson(restaurants);
+      map.data.addListener('click', function(event) {
+        const content = (
+          `<div>
+            <strong>${event.feature.getProperty('name')}</strong>
+            <br>
+            Rating: ${event.feature.getProperty('rating')} stars
+            <br>
+            ${event.feature.getProperty('formatted_address')}
+          </div>`
+        );
+        hoverInfoWindow.close();
+        clickInfoWindow.setContent(content);
+        clickInfoWindow.setPosition(event.latLng);
+        clickInfoWindow.open(map, this);
       });
+      map.data.addListener('mouseover', function(event) {
+        const content = (
+          `<div>
+            <strong>${event.feature.getProperty('name')}</strong>
+            <p> ${event.feature.getProperty('rating')} stars</p>
+          </div>`
+        )
+        hoverInfoWindow.setContent(content);
+        hoverInfoWindow.setPosition(event.latLng);
+        hoverInfoWindow.open(map, this);
+      })
+      map.data.addListener('mouseout', function(event) {
+        hoverInfoWindow.close();
+      })
     })
     .catch((err) => {console.log('❌ Error:', err)});
+
+  map.data.setStyle((feature) => {
+    const rating = feature.getProperty('rating');
+    return {
+      icon: getCircle(rating)
+    };
+  });
+
+  function getCircle(rating) {
+    const maxRating = 5;
+    const minRating = 2.8;
+    const scaledRating = 20 * (rating - minRating) / (maxRating - minRating);
+    return {
+      path: google.maps.SymbolPath.CIRCLE,
+      fillColor: 'red',
+      fillOpacity: .2,
+      scale: scaledRating,
+      strokeColor: 'white',
+      strokeWeight: .5
+    };
+  };
 
   // service.getDetails({
   //   placeId: '587ff1bc92d40ca5f6bfc70786dec8f3305d8b53'
